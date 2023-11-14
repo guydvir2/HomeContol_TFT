@@ -15,16 +15,15 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 #define numButtons_Windows_Operate 3
 
 LabelTFT title(tft);
-buttonArrayTFT<numButtons_Keypad> genButtonArr(ts, tft);
+buttonArrayTFT<numButtons_Keypad> genButtonArr(ts, tft); /* Using one instance for all menus */
 
+uint8_t activeMenu = 0;
 bool display_clock = true;
 char keypad_pressed_chrs[10];
-uint8_t activeMenu = 0;
+unsigned long last_press_millis = 0;
 bool light_state_top[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
 bool light_state_ext[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
 bool light_state_ground[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
-
-unsigned long last_press_millis = 0;
 
 enum menu : const uint8_t
 {
@@ -40,22 +39,60 @@ enum menu : const uint8_t
   WINDOWS_GROUND,
   WINDOWS_TOP,
   WINDOWS_PERG,
-  WINDOWS_OPER,
   SYSTEM_MAIM
 };
 
-void rebuild_screen(uint8_t i);
+void build_screen(uint8_t i, const char *ttl = NULL);
 void external_cb(int i)
 {
   Serial.print("CB: #");
   Serial.println(i);
 }
-void set_buttons_state()
+void set_buttons_state(uint8_t n, bool array[]) /* on re-creatoin of a menu - when using is latch button */
 {
-  for (uint8_t i = 0; i < numButtons_Lights; i++)
+  for (uint8_t i = 0; i < n; i++)
   {
-    // genButtonArr.set_pressed()
+    if (genButtonArr.butarray[i].tft_entity.latchButton)
+    {
+      if (genButtonArr.butarray[i].get_buttonState() != array[i])
+      {
+        genButtonArr.butarray[i].set_buttonState(array[i]);
+      }
+    }
   }
+}
+void set_def_TFT(TFT_entity &tft_ent, bool latch = false)
+{
+  genButtonArr.dw = 2;
+  genButtonArr.dh = 2;
+  tft_ent.txt_size = 2;
+  tft_ent.border_thickness = 2;
+  tft_ent.border_color = ILI9341_RED;
+  tft_ent.face_color = ILI9341_WHITE;
+  tft_ent.txt_color = ILI9341_BLACK;
+  tft_ent.pressface_color = ILI9341_CYAN;
+  tft_ent.roundRect = false;
+  tft_ent.useBorder = false;
+  tft_ent.center_txt = true;
+  tft_ent.latchButton = latch;
+  tft_ent.corner_radius = 2;
+}
+void create_gen_menu(uint8_t R, uint8_t C, bool latch, const char *a[])
+{
+  TFT_entity tft_entity;
+  set_def_TFT(tft_entity, latch);
+
+  tft_entity.w = (tft.width() - genButtonArr.dw) / C;                                 /* When defined other than 0 , max screen's width's height will be taken */
+  tft_entity.h = (tft.height() - title.tft_entity.h - (R - 1) * genButtonArr.dh) / R; /* When defined other than 0 , max screen's width's height will be taken */
+
+  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
+  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
+  genButtonArr.set_button_properties(tft_entity);
+  for (uint8_t i = 0; i < numButtons_Keypad; i++)
+  {
+    genButtonArr.butarray[i].clear_buttonState();
+  }
+  genButtonArr.create_array(R, C, a);
 }
 void create_title()
 {
@@ -72,262 +109,58 @@ void create_title()
   title.tft_entity.useBorder = false;
   title.tft_entity.center_txt = true;
 
-  title.createLabel("12:00");
+  title.createLabel("Hello World");
 }
 void create_Main()
 {
-  TFT_entity tft_entity;
-
-  genButtonArr.dw = 2;
-  genButtonArr.dh = 2;
-  tft_entity.w = (tft.width() - genButtonArr.dw) / 2;                           /* When defined other than 0 , max screen's width's height will be taken */
-  tft_entity.h = (tft.height() - title.tft_entity.h - 2 * genButtonArr.dh) / 2; /* When defined other than 0 , max screen's width's height will be taken */
-  tft_entity.txt_size = 2;
-  tft_entity.border_thickness = 2;
-  tft_entity.border_color = ILI9341_RED;
-  tft_entity.face_color = ILI9341_WHITE;
-  tft_entity.txt_color = ILI9341_BLACK;
-  tft_entity.pressface_color = ILI9341_CYAN;
-  tft_entity.roundRect = false;
-  tft_entity.useBorder = false;
-  tft_entity.center_txt = true;
-  tft_entity.latchButton = false;
-  tft_entity.corner_radius = 2;
-
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
   const char *a[] = {"Alarm", "Lights", "Windows", "System"};
-  genButtonArr.set_button_properties(tft_entity);
-  genButtonArr.create_array(2, 2, a);
+  create_gen_menu(2, 2, false, a);
 }
 void create_keypad()
 {
-  TFT_entity keypad_entity;
-
-  genButtonArr.dw = 2;
-  genButtonArr.dh = 2;
-  keypad_entity.w = (tft.width() - 2 * genButtonArr.dw) / 3;                       /* When defined other than 0 , max screen's width's height will be taken */
-  keypad_entity.h = (tft.height() - 5 * genButtonArr.dh - title.tft_entity.h) / 4; /* When defined other than 0 , max screen's width's height will be taken */
-  keypad_entity.txt_size = 2;
-  keypad_entity.border_thickness = 2;
-  keypad_entity.border_color = ILI9341_RED;
-  keypad_entity.face_color = ILI9341_WHITE;
-  keypad_entity.txt_color = ILI9341_BLACK;
-  keypad_entity.pressface_color = ILI9341_CYAN;
-  keypad_entity.roundRect = false;
-  keypad_entity.useBorder = true;
-  keypad_entity.center_txt = true;
-  keypad_entity.latchButton = false;
-  keypad_entity.corner_radius = 5;
-
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
   const char *a[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"};
-  genButtonArr.set_button_properties(keypad_entity);
-  genButtonArr.create_array(4, 3, a);
+  create_gen_menu(4, 3, false, a);
 }
 void create_AlarmMenu()
 {
-  TFT_entity alarmMenu_entity;
-
-  genButtonArr.dw = 2;
-  genButtonArr.dh = 2;
-  alarmMenu_entity.w = tft.width();                                                   /* When defined other than 0 , max screen's width's height will be taken */
-  alarmMenu_entity.h = (tft.height() - title.tft_entity.h - 3 * genButtonArr.dh) / 3; /* When defined other than 0 , max screen's width's height will be taken */
-  alarmMenu_entity.txt_size = 2;
-  alarmMenu_entity.border_thickness = 2;
-  alarmMenu_entity.border_color = ILI9341_RED;
-  alarmMenu_entity.face_color = ILI9341_WHITE;
-  alarmMenu_entity.txt_color = ILI9341_BLACK;
-  alarmMenu_entity.pressface_color = ILI9341_CYAN;
-  alarmMenu_entity.roundRect = false;
-  alarmMenu_entity.useBorder = false;
-  alarmMenu_entity.center_txt = true;
-  alarmMenu_entity.latchButton = false;
-  alarmMenu_entity.corner_radius = 2;
-
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
-  const char *a[] = {"Arm Home", "Arm Away", "Disarm"};
-  genButtonArr.set_button_properties(alarmMenu_entity);
-  genButtonArr.create_array(3, 1, a);
+  const char *a[] = {"Arm Home", "Arm Away", "Disarm KeyPad"};
+  create_gen_menu(3, 1, false, a);
 }
 void create_Lights_int_g()
 {
-  TFT_entity Light_entity;
-
-  genButtonArr.dw = 2;
-  genButtonArr.dh = 2;
-  Light_entity.w = (tft.width() - genButtonArr.dw) / 2;                           /* When defined other than 0 , max screen's width's height will be taken */
-  Light_entity.h = (tft.height() - title.tft_entity.h - 3 * genButtonArr.dh) / 3; /* When defined other than 0 , max screen's width's height will be taken */
-  Light_entity.txt_size = 2;
-  Light_entity.border_thickness = 2;
-  Light_entity.border_color = ILI9341_RED;
-  Light_entity.face_color = ILI9341_WHITE;
-  Light_entity.txt_color = ILI9341_BLACK;
-  Light_entity.pressface_color = ILI9341_CYAN;
-  Light_entity.roundRect = true;
-  Light_entity.useBorder = false;
-  Light_entity.center_txt = true;
-  Light_entity.latchButton = true;
-  Light_entity.corner_radius = 2;
-
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
   const char *a[] = {"Light_G1", "Light_G2", "Light_G3", "Light_G4", "Light_G5", "Light_G6"};
-  genButtonArr.set_button_properties(Light_entity);
-  genButtonArr.create_array(3, 2, a);
-
-  // for (uint8_t i = 0; i < numButtons_Lights; i++)
-  // {
-  //   if (light_state_ground[i])
-  //   {
-  //     genButtonArr.butarray[i].set_buttonState(light_state_ground[i]);
-  //   }
-  // }
+  create_gen_menu(3, 2, true, a);
+  set_buttons_state(numButtons_Lights, light_state_ground);
 }
 void create_Lights_int_2()
 {
-  TFT_entity Light_entity;
-
-  genButtonArr.dw = 2;
-  genButtonArr.dh = 2;
-  Light_entity.w = (tft.width() - genButtonArr.dw) / 2;                           /* When defined other than 0 , max screen's width's height will be taken */
-  Light_entity.h = (tft.height() - title.tft_entity.h - 3 * genButtonArr.dh) / 3; /* When defined other than 0 , max screen's width's height will be taken */
-  Light_entity.txt_size = 2;
-  Light_entity.border_thickness = 2;
-  Light_entity.border_color = ILI9341_RED;
-  Light_entity.face_color = ILI9341_WHITE;
-  Light_entity.txt_color = ILI9341_BLACK;
-  Light_entity.pressface_color = ILI9341_CYAN;
-  Light_entity.roundRect = true;
-  Light_entity.useBorder = false;
-  Light_entity.center_txt = true;
-  Light_entity.latchButton = true;
-  Light_entity.corner_radius = 2;
-
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
-  const char *a[] = {"Li21", "Li22", "Lig3", "Li24", "Li25", "Li26"};
-  genButtonArr.set_button_properties(Light_entity);
-
-  // for (uint8_t i = 0; i < numButtons_Lights; i++)
-  // {
-  //   genButtonArr.butarray[i].set_buttonState(light_state_top[i]);
-  // }
-  genButtonArr.create_array(3, 2, a);
+  const char *a[] = {"TopLight1", "TopLight2", "TopLight3", "TopLight4", "TopLight5", "TopLight6"};
+  create_gen_menu(3, 2, true, a);
+  set_buttons_state(numButtons_Lights, light_state_top);
 }
 void create_Lights_ext()
 {
-  TFT_entity Light_entity;
-
-  genButtonArr.dw = 2;
-  genButtonArr.dh = 2;
-  Light_entity.w = (tft.width() - genButtonArr.dw) / 2;                           /* When defined other than 0 , max screen's width's height will be taken */
-  Light_entity.h = (tft.height() - title.tft_entity.h - 3 * genButtonArr.dh) / 3; /* When defined other than 0 , max screen's width's height will be taken */
-  Light_entity.txt_size = 2;
-  Light_entity.border_thickness = 2;
-  Light_entity.border_color = ILI9341_RED;
-  Light_entity.face_color = ILI9341_WHITE;
-  Light_entity.txt_color = ILI9341_BLACK;
-  Light_entity.pressface_color = ILI9341_CYAN;
-  Light_entity.roundRect = true;
-  Light_entity.useBorder = false;
-  Light_entity.center_txt = true;
-  Light_entity.latchButton = true;
-  Light_entity.corner_radius = 2;
-
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
-  const char *a[] = {"LX1", "LX2", "LX3", "LX4", "LX5", "LX6"};
-  genButtonArr.set_button_properties(Light_entity);
-
-  // for (uint8_t i = 0; i < numButtons_Lights; i++)
-  // {
-  //   genButtonArr.butarray[i].set_buttonState(light_state_ext[i]);
-  // }
-  genButtonArr.create_array(3, 2, a);
+  const char *a[] = {"extLight1", "extLight2", "extLight3", "extLight4", "extLight5", "extLight6"};
+  create_gen_menu(3, 2, true, a);
+  set_buttons_state(numButtons_Lights, light_state_ext);
 }
 void create_Lights_Main()
 {
-  TFT_entity Light_entity;
-
-  genButtonArr.dw = 2;
-  genButtonArr.dh = 2;
-  Light_entity.w = tft.width();                                                                                                   /* When defined other than 0 , max screen's width's height will be taken */
-  Light_entity.h = (tft.height() - title.tft_entity.h - (numButtons_Lights_Main - 1) * genButtonArr.dh) / numButtons_Lights_Main; /* When defined other than 0 , max screen's width's height will be taken */
-  Light_entity.txt_size = 2;
-  Light_entity.border_thickness = 2;
-  Light_entity.border_color = ILI9341_RED;
-  Light_entity.face_color = ILI9341_WHITE;
-  Light_entity.txt_color = ILI9341_BLACK;
-  Light_entity.pressface_color = ILI9341_CYAN;
-  Light_entity.roundRect = true;
-  Light_entity.useBorder = false;
-  Light_entity.center_txt = true;
-  Light_entity.latchButton = false;
-  Light_entity.corner_radius = 2;
-
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
   const char *a[] = {"Ground Floor", "2nd Floor", "Garden"};
-  genButtonArr.set_button_properties(Light_entity);
-  genButtonArr.create_array(3, 1, a);
+  create_gen_menu(3, 1, false, a);
 }
 void create_Windows_Main()
 {
-  TFT_entity tft_entity;
-
-  genButtonArr.dw = 2;
-  genButtonArr.dh = 2;
-  tft_entity.w = tft.width();                                                                                                     /* When defined other than 0 , max screen's width's height will be taken */
-  tft_entity.h = (tft.height() - title.tft_entity.h - (numButtons_Windows_Main - 1) * genButtonArr.dh) / numButtons_Windows_Main; /* When defined other than 0 , max screen's width's height will be taken */
-  tft_entity.txt_size = 2;
-  tft_entity.border_thickness = 2;
-  tft_entity.border_color = ILI9341_RED;
-  tft_entity.face_color = ILI9341_WHITE;
-  tft_entity.txt_color = ILI9341_BLACK;
-  tft_entity.pressface_color = ILI9341_CYAN;
-  tft_entity.roundRect = true;
-  tft_entity.useBorder = false;
-  tft_entity.center_txt = true;
-  tft_entity.latchButton = false;
-  tft_entity.corner_radius = 2;
-
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
   const char *a[] = {"All", "Ground Floor", "Top Floor", "Pergs&Kitch"};
-  genButtonArr.set_button_properties(tft_entity);
-  genButtonArr.create_array(4, 1, a);
+  create_gen_menu(4, 1, false, a);
 }
 void create_Windows_Operate()
 {
-  TFT_entity tft_entity;
-
-  genButtonArr.dw = 2;
-  genButtonArr.dh = 2;
-  tft_entity.w = tft.width();                                                                                                           /* When defined other than 0 , max screen's width's height will be taken */
-  tft_entity.h = (tft.height() - title.tft_entity.h - (numButtons_Windows_Operate - 1) * genButtonArr.dh) / numButtons_Windows_Operate; /* When defined other than 0 , max screen's width's height will be taken */
-  tft_entity.txt_size = 2;
-  tft_entity.border_thickness = 2;
-  tft_entity.border_color = ILI9341_RED;
-  tft_entity.face_color = ILI9341_WHITE;
-  tft_entity.txt_color = ILI9341_BLACK;
-  tft_entity.pressface_color = ILI9341_CYAN;
-  tft_entity.roundRect = true;
-  tft_entity.useBorder = false;
-  tft_entity.center_txt = true;
-  tft_entity.latchButton = false;
-  tft_entity.corner_radius = 2;
-
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
   const char *a[] = {"Up", "Stop", "Down"};
-  genButtonArr.set_button_properties(tft_entity);
-  genButtonArr.create_array(numButtons_Windows_Operate, 1, a);
+  create_gen_menu(3, 1, false, a);
 }
 
-void update_clk(char *retClk)
+void calc_clk(char *retClk)
 {
   const int MILLIS2SEC = 1000;
   const int MILLIS2MIN = 60 * MILLIS2SEC;
@@ -349,12 +182,18 @@ void update_title(const char *ttl = NULL)
     {
       last_mil = millis();
       char a[20];
-      update_clk(a);
+      calc_clk(a);
       title.createLabel(a);
     }
   }
+  else
+  {
+    if (ttl != NULL)
+    {
+      title.createLabel(ttl);
+    }
+  }
 }
-
 void clear_keypad()
 {
   strcpy(keypad_pressed_chrs, "");
@@ -370,12 +209,10 @@ void send_keypad_msg_cd()
 
 void read_keypad()
 {
-  static unsigned long last_time_key_pressed = 0;
-
   uint8_t kpad_dig = genButtonArr.checkPress(numButtons_Keypad);
   if (kpad_dig == 99)
   {
-    if (display_clock == false && millis() - last_time_key_pressed > 5000)
+    if (display_clock == false && millis() - last_press_millis > 5000)
     {
       clear_keypad();
       display_clock = true;
@@ -398,7 +235,7 @@ void read_keypad()
     else
     {
       display_clock = false;
-      last_time_key_pressed = millis();
+      // last_time_key_pressed = millis();
       const char *a[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"};
       add_char_kaypad(a[kpad_dig]);
       title.createLabel(keypad_pressed_chrs);
@@ -415,18 +252,15 @@ void read_Lights_Main()
 
     if (Light_dig == 0)
     {
-      rebuild_screen(LIGHTS_GROUND);
-      create_Lights_int_g();
+      build_screen(LIGHTS_GROUND);
     }
     else if (Light_dig == 1)
     {
-      rebuild_screen(LIGHTS_TOP);
-      create_Lights_int_2();
+      build_screen(LIGHTS_TOP);
     }
     else if (Light_dig == 2)
     {
-      rebuild_screen(LIGHTS_EXT);
-      create_Lights_ext();
+      build_screen(LIGHTS_EXT);
     }
   }
 }
@@ -437,7 +271,7 @@ void read_Lights_int_g()
   if (Light_dig != 99)
   {
     last_press_millis = millis();
-    // light_state_ground[Light_dig] = genButtonArr.butarray[Light_dig].get_buttonState();
+    light_state_ground[Light_dig] = genButtonArr.butarray[Light_dig].get_buttonState();
     external_cb(100 + 10 * (Light_dig + 1) + genButtonArr.butarray[Light_dig].get_buttonState());
   }
 }
@@ -472,15 +306,13 @@ void read_alarmMenu()
     last_press_millis = millis();
     if (alarm_dig == 2)
     {
-      rebuild_screen(ALARM_KEYPAD);
-      create_keypad();
+      build_screen(ALARM_KEYPAD);
     }
     else
     {
       Serial.println("ALARM");
       external_cb(alarm_dig);
-      rebuild_screen(MAIN_MENU);
-      create_Main();
+      build_screen(MAIN_MENU);
     }
   }
 }
@@ -493,23 +325,19 @@ void read_Main()
     last_press_millis = millis();
     if (Main_dig == 0) /* Alarm Menu */
     {
-      rebuild_screen(ALARM_MAIN);
-      create_AlarmMenu();
+      build_screen(ALARM_MAIN);
     }
     else if (Main_dig == 1) /* Lights Menu */
     {
-      rebuild_screen(LIGHTS_MAIN);
-      create_Lights_Main();
+      build_screen(LIGHTS_MAIN);
     }
     else if (Main_dig == 2) /* Windows Menu */
     {
-      rebuild_screen(WINDOWS_MAIN);
-      create_Windows_Main();
+      build_screen(WINDOWS_MAIN);
     }
     else if (Main_dig == SYSTEM_MAIM) /* System Menu */
     {
-      // rebuild_screen(LIGHTS_MAIN);
-      // create_Lights_Main();
+      // build_screen(LIGHTS_MAIN);
     }
   }
 }
@@ -522,21 +350,20 @@ void read_Windows_Main()
     last_press_millis = millis();
     if (Main_dig == 0)
     {
-      rebuild_screen(WINDOWS_ALL);
+      build_screen(WINDOWS_ALL);
     }
     else if (Main_dig == 1)
     {
-      rebuild_screen(WINDOWS_GROUND);
+      build_screen(WINDOWS_GROUND);
     }
     else if (Main_dig == 2)
     {
-      rebuild_screen(WINDOWS_TOP);
+      build_screen(WINDOWS_TOP);
     }
     else if (Main_dig == 3)
     {
-      rebuild_screen(WINDOWS_PERG);
+      build_screen(WINDOWS_PERG);
     }
-    create_Windows_Operate();
   }
 }
 void read_Windows_Oper()
@@ -550,21 +377,63 @@ void read_Windows_Oper()
   }
 }
 
-void rebuild_screen(uint8_t i)
+void build_screen(uint8_t i, const char *ttl)
 {
   uint16_t background_color = ILI9341_BLUE;
   title.clear_screen();
   tft.fillScreen(background_color);
-  create_title();
+  update_title("HelloWorld");
   activeMenu = i;
+
+  switch (activeMenu)
+  {
+  case MAIN_MENU:
+    create_Main();
+    break;
+  case ALARM_MAIN:
+    create_AlarmMenu();
+    break;
+  case ALARM_KEYPAD:
+    display_clock = false;
+    create_keypad();
+    break;
+  case LIGHTS_MAIN:
+    create_Lights_Main();
+    break;
+  case LIGHTS_GROUND:
+    create_Lights_int_g();
+    break;
+  case LIGHTS_TOP:
+    create_Lights_int_2();
+    break;
+  case LIGHTS_EXT:
+    create_Lights_ext();
+    break;
+  case WINDOWS_MAIN:
+    create_Windows_Main();
+    break;
+  case WINDOWS_ALL:
+    create_Windows_Operate();
+    break;
+  case WINDOWS_GROUND:
+    create_Windows_Operate();
+    break;
+  case WINDOWS_TOP:
+    create_Windows_Operate();
+    break;
+  case WINDOWS_PERG:
+    create_Windows_Operate();
+    break;
+  default:
+    break;
+  }
 }
 void timeout_to_mainScreen()
 {
-  uint8_t TO = 4;
-  if (millis() - last_press_millis > TO * 1000 && activeMenu != 0)
+  uint8_t TO = 8;
+  if (millis() - last_press_millis > TO * 1000 && activeMenu != MAIN_MENU)
   {
-    rebuild_screen(0);
-    create_Main();
+    build_screen(MAIN_MENU);
   }
 }
 void start_GUI()
@@ -572,9 +441,8 @@ void start_GUI()
   ts.begin();
   tft.begin();
   tft.setRotation(SCREEN_ROT); /* 0-3 90 deg each */
-  rebuild_screen(0);
   create_title();
-  create_Main();
+  build_screen(MAIN_MENU);
 }
 
 void setup()
@@ -626,10 +494,4 @@ void loop()
 
   update_title();
   timeout_to_mainScreen();
-  // for (uint8_t i = 0; i < numButtons_Lights; i++)
-  // {
-  //   Serial.print(light_state_ground[i]);
-  // }
-  // Serial.println("");
-  // delay(100);
 }
