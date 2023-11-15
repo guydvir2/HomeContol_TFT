@@ -17,14 +17,6 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 LabelTFT title(tft);
 buttonArrayTFT<numButtons_Keypad> genButtonArr(ts, tft); /* Using one instance for all menus */
 
-uint8_t activeMenu = 0;
-bool display_clock = true;
-char keypad_pressed_chrs[10];
-unsigned long last_press_millis = 0;
-bool light_state_top[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
-bool light_state_ext[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
-bool light_state_ground[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
-
 enum menu : const uint8_t
 {
   MAIN_MENU,
@@ -41,8 +33,23 @@ enum menu : const uint8_t
   WINDOWS_PERG,
   SYSTEM_MAIM
 };
+enum title : const uint8_t
+{
+  CLOCK_ֹTITLE,
+  TEXT_TITLE,
+  NO_TITLE
+};
 
-void build_screen(uint8_t i, const char *ttl = NULL);
+uint8_t activeMenu = MAIN_MENU;
+uint8_t activeTiltle = CLOCK_ֹTITLE;
+
+char keypad_pressed_chrs[10];
+unsigned long last_press_millis = 0;
+bool light_state_top[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
+bool light_state_ext[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
+bool light_state_ground[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
+
+void build_screen(uint8_t i, const char *ttl = nullptr);
 void external_cb(int i)
 {
   Serial.print("CB: #");
@@ -52,12 +59,9 @@ void set_buttons_state(uint8_t n, bool array[]) /* on re-creatoin of a menu - wh
 {
   for (uint8_t i = 0; i < n; i++)
   {
-    if (genButtonArr.butarray[i].tft_entity.latchButton)
+    if (genButtonArr.butarray[i].tft_entity.latchButton && genButtonArr.butarray[i].get_buttonState() != array[i])
     {
-      if (genButtonArr.butarray[i].get_buttonState() != array[i])
-      {
-        genButtonArr.butarray[i].set_buttonState(array[i]);
-      }
+      genButtonArr.butarray[i].set_buttonState(array[i]); /* rebuild button in correct state */
     }
   }
 }
@@ -71,22 +75,30 @@ void set_def_TFT(TFT_entity &tft_ent, bool latch = false)
   tft_ent.face_color = ILI9341_WHITE;
   tft_ent.txt_color = ILI9341_BLACK;
   tft_ent.pressface_color = ILI9341_CYAN;
-  tft_ent.roundRect = false;
+  tft_ent.roundRect = true;
   tft_ent.useBorder = false;
   tft_ent.center_txt = true;
   tft_ent.latchButton = latch;
-  tft_ent.corner_radius = 2;
+  tft_ent.corner_radius = 4;
 }
 void create_gen_menu(uint8_t R, uint8_t C, bool latch, const char *a[])
 {
   TFT_entity tft_entity;
   set_def_TFT(tft_entity, latch);
 
-  tft_entity.w = (tft.width() - genButtonArr.dw) / C;                                 /* When defined other than 0 , max screen's width's height will be taken */
-  tft_entity.h = (tft.height() - title.tft_entity.h - (R - 1) * genButtonArr.dh) / R; /* When defined other than 0 , max screen's width's height will be taken */
+  tft_entity.w = (tft.width() - genButtonArr.dw) / C; /* When defined other than 0 , max screen's width's height will be taken */
+  if (activeTiltle != NO_TITLE)
+  {
+    tft_entity.h = (tft.height() - title.tft_entity.h - (R + 1) * genButtonArr.dh) / R; /* When defined other than 0 , max screen's width's height will be taken */
+    genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh;                    /* When defined other than 0 - it will not be position at center */
+  }
+  else
+  {
+    tft_entity.h = (tft.height() - (R + 1) * genButtonArr.dh) / R; /* When defined other than 0 , max screen's width's height will be taken */
+    genButtonArr.shift_pos_h = genButtonArr.dh;                    /* When defined other than 0 - it will not be position at center */
+  }
 
-  genButtonArr.shift_pos_h = title.tft_entity.h + genButtonArr.dh; /* When defined other than 0 - it will not be position at center */
-  genButtonArr.shift_pos_w = 0;                                    /* When defined other than 0 - it will not be position at center */
+  genButtonArr.shift_pos_w = 0; /* When defined other than 0 - it will not be position at center */
   genButtonArr.set_button_properties(tft_entity);
   for (uint8_t i = 0; i < numButtons_Keypad; i++)
   {
@@ -108,8 +120,6 @@ void create_title()
   title.tft_entity.roundRect = false;
   title.tft_entity.useBorder = false;
   title.tft_entity.center_txt = true;
-
-  title.createLabel("Hello World");
 }
 void create_Main()
 {
@@ -173,9 +183,9 @@ void calc_clk(char *retClk)
 
   sprintf(retClk, "%02d:%02d:%02d", H, M, S);
 }
-void update_title(const char *ttl = NULL)
+void update_title(const char *ttl = nullptr)
 {
-  if (display_clock)
+  if (activeTiltle == CLOCK_ֹTITLE)
   {
     static long last_mil = 0;
     if (millis() - last_mil > 1000)
@@ -186,12 +196,21 @@ void update_title(const char *ttl = NULL)
       title.createLabel(a);
     }
   }
-  else
+  else if (activeTiltle == TEXT_TITLE)
   {
-    if (ttl != NULL)
+    if (ttl != nullptr)
     {
       title.createLabel(ttl);
     }
+    // else
+    // {
+    //   title.createLabel(" ");
+    // }
+  }
+  else if (activeTiltle == NO_TITLE)
+  {
+    // Serial.println("NO_TTL");
+    yield();
   }
 }
 void clear_keypad()
@@ -212,10 +231,9 @@ void read_keypad()
   uint8_t kpad_dig = genButtonArr.checkPress(numButtons_Keypad);
   if (kpad_dig == 99)
   {
-    if (display_clock == false && millis() - last_press_millis > 5000)
+    if (activeTiltle != CLOCK_ֹTITLE && millis() - last_press_millis > 5000)
     {
       clear_keypad();
-      display_clock = true;
     }
   }
   else
@@ -225,17 +243,13 @@ void read_keypad()
     {
       send_keypad_msg_cd();
       clear_keypad();
-      display_clock = true;
     }
     else if (kpad_dig == 9)
     {
       clear_keypad();
-      display_clock = true;
     }
     else
     {
-      display_clock = false;
-      // last_time_key_pressed = millis();
       const char *a[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"};
       add_char_kaypad(a[kpad_dig]);
       title.createLabel(keypad_pressed_chrs);
@@ -376,25 +390,71 @@ void read_Windows_Oper()
     external_cb(activeMenu + (Main_dig + 1) * 1000);
   }
 }
+void read_activeMenu()
+{
+  switch (activeMenu)
+  {
+  case MAIN_MENU:
+    read_Main();
+    break;
+  case ALARM_MAIN:
+    read_alarmMenu();
+    break;
+  case ALARM_KEYPAD:
+    read_keypad();
+    break;
+  case LIGHTS_MAIN:
+    read_Lights_Main();
+    break;
+  case LIGHTS_GROUND:
+    read_Lights_int_g();
+    break;
+  case LIGHTS_TOP:
+    read_Lights_int_2();
+    break;
+  case LIGHTS_EXT:
+    read_Lights_ext();
+    break;
+  case WINDOWS_MAIN:
+    read_Windows_Main();
+    break;
+  case WINDOWS_ALL:
+    read_Windows_Oper();
+    break;
+  case WINDOWS_GROUND:
+    read_Windows_Oper();
+    break;
+  case WINDOWS_TOP:
+    read_Windows_Oper();
+    break;
+  case WINDOWS_PERG:
+    read_Windows_Oper();
+    break;
+  }
+}
 
 void build_screen(uint8_t i, const char *ttl)
 {
   uint16_t background_color = ILI9341_BLUE;
   title.clear_screen();
   tft.fillScreen(background_color);
-  update_title("HelloWorld");
+
   activeMenu = i;
+  activeTiltle = NO_TITLE;
 
   switch (activeMenu)
   {
   case MAIN_MENU:
+    activeTiltle = CLOCK_ֹTITLE;
+    update_title(ttl);
     create_Main();
     break;
   case ALARM_MAIN:
     create_AlarmMenu();
     break;
   case ALARM_KEYPAD:
-    display_clock = false;
+    activeTiltle = TEXT_TITLE;
+    update_title("\"*\" Send; \"#\"Clear");
     create_keypad();
     break;
   case LIGHTS_MAIN:
@@ -442,7 +502,7 @@ void start_GUI()
   tft.begin();
   tft.setRotation(SCREEN_ROT); /* 0-3 90 deg each */
   create_title();
-  build_screen(MAIN_MENU);
+  build_screen(MAIN_MENU, "Hello !");
 }
 
 void setup()
@@ -452,46 +512,7 @@ void setup()
 }
 void loop()
 {
-  switch (activeMenu)
-  {
-  case MAIN_MENU:
-    read_Main();
-    break;
-  case ALARM_MAIN:
-    read_alarmMenu();
-    break;
-  case ALARM_KEYPAD:
-    read_keypad();
-    break;
-  case LIGHTS_MAIN:
-    read_Lights_Main();
-    break;
-  case LIGHTS_GROUND:
-    read_Lights_int_g();
-    break;
-  case LIGHTS_TOP:
-    read_Lights_int_2();
-    break;
-  case LIGHTS_EXT:
-    read_Lights_ext();
-    break;
-  case WINDOWS_MAIN:
-    read_Windows_Main();
-    break;
-  case WINDOWS_ALL:
-    read_Windows_Oper();
-    break;
-  case WINDOWS_GROUND:
-    read_Windows_Oper();
-    break;
-  case WINDOWS_TOP:
-    read_Windows_Oper();
-    break;
-  case WINDOWS_PERG:
-    read_Windows_Oper();
-    break;
-  }
-
+  read_activeMenu();
   update_title();
   timeout_to_mainScreen();
 }
