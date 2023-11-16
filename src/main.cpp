@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <TFT_GUI.h>
 
+
 /* Initialize TFT */
 #define SCREEN_ROT 0
 XPT2046_Touchscreen ts(TS_CS);
@@ -102,8 +103,7 @@ void create_gen_menu(uint8_t R, uint8_t C, bool latch, const char *a[])
   genButtonArr.set_button_properties(tft_entity);
   for (uint8_t i = 0; i < numButtons_Keypad; i++)
   {
-    genButtonArr.butarray[i].
-    // genButtonArr.butarray[i].clear_buttonState();
+    genButtonArr.butarray[i].clear_buttonState();
   }
   genButtonArr.create_array(R, C, a);
 }
