@@ -102,7 +102,8 @@ void create_gen_menu(uint8_t R, uint8_t C, bool latch, const char *a[])
   genButtonArr.set_button_properties(tft_entity);
   for (uint8_t i = 0; i < numButtons_Keypad; i++)
   {
-    genButtonArr.butarray[i].clear_buttonState();
+    genButtonArr.butarray[i].
+    // genButtonArr.butarray[i].clear_buttonState();
   }
   genButtonArr.create_array(R, C, a);
 }
@@ -209,7 +210,6 @@ void update_title(const char *ttl = nullptr)
   }
   else if (activeTiltle == NO_TITLE)
   {
-    // Serial.println("NO_TTL");
     yield();
   }
 }
@@ -229,30 +229,34 @@ void send_keypad_msg_cd()
 void read_keypad()
 {
   uint8_t kpad_dig = genButtonArr.checkPress(numButtons_Keypad);
-  if (kpad_dig == 99)
+  if (kpad_dig != 99)
   {
-    if (activeTiltle != CLOCK_ֹTITLE && millis() - last_press_millis > 5000)
-    {
-      clear_keypad();
-    }
-  }
-  else
-  {
+    //   if (activeTiltle != CLOCK_ֹTITLE && millis() - last_press_millis > 5000)
+    //   {
+    //     clear_keypad();
+    //   }
+    // }
+    // else
+    // {
     last_press_millis = millis();
     if (kpad_dig == 11)
     {
       send_keypad_msg_cd();
+      update_title((" ** SENT ** "));
+      delay(1000);
       clear_keypad();
     }
     else if (kpad_dig == 9)
     {
+      update_title((" ** CLEAR ** "));
+      delay(1000);
       clear_keypad();
     }
     else
     {
       const char *a[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"};
       add_char_kaypad(a[kpad_dig]);
-      title.createLabel(keypad_pressed_chrs);
+      update_title(keypad_pressed_chrs);
     }
   }
 }
