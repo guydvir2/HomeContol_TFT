@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <TFT_GUI.h>
-
+#include "iot.h"
 
 /* Initialize TFT */
 #define SCREEN_ROT 0
@@ -193,7 +193,8 @@ void update_title(const char *ttl = nullptr)
     {
       last_mil = millis();
       char a[20];
-      calc_clk(a);
+      // calc_clk(a);
+      iot.get_timeStamp(a);
       title.createLabel(a);
     }
   }
@@ -512,11 +513,24 @@ void start_GUI()
 void setup()
 {
   Serial.begin(115200);
+  Serial.println("\nStart");
   start_GUI();
+  start_iot2();
 }
 void loop()
 {
+  static unsigned long last_gen = 0;
   read_activeMenu();
   update_title();
   timeout_to_mainScreen();
+  iot.looper();
+  if (millis() > 5000)
+  {
+    send_msgsInQue();
+  }
+  if (millis() - last_gen > 5000+5000*(rand()))
+  {
+    last_gen = millis();
+    gen_dummyMsg(5);
+  }
 }
