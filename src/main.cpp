@@ -14,6 +14,7 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 #define numButtons_Keypad 12
 #define numButtons_Windows_Main 4
 #define numButtons_Windows_Operate 3
+#define numButtons_Lights_Operate 2
 
 LabelTFT title(tft);
 buttonArrayTFT<numButtons_Keypad> genButtonArr(ts, tft); /* Using one instance for all menus */
@@ -22,17 +23,18 @@ enum menu : const uint8_t
 {
   MAIN_MENU,
   ALARM_MAIN,
-  ALARM_KEYPAD,
   LIGHTS_MAIN,
+  WINDOWS_MAIN,
+  ALARM_KEYPAD,
+  SYSTEM_MAIM,
   LIGHTS_GROUND,
   LIGHTS_TOP,
   LIGHTS_EXT,
-  WINDOWS_MAIN,
+  LIGHTS_OPER,
   WINDOWS_ALL,
   WINDOWS_GROUND,
   WINDOWS_TOP,
   WINDOWS_PERG,
-  SYSTEM_MAIM
 };
 enum title : const uint8_t
 {
@@ -41,6 +43,7 @@ enum title : const uint8_t
   NO_TITLE
 };
 
+uint8_t lastMenu = MAIN_MENU;
 uint8_t activeMenu = MAIN_MENU;
 uint8_t activeTiltle = CLOCK_ֹTITLE;
 
@@ -50,13 +53,62 @@ bool light_state_top[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
 bool light_state_ext[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
 bool light_state_ground[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
 
-void build_screen(uint8_t i, const char *ttl = nullptr);
-void external_cb(int i)
+void timeout_to_mainScreen();
+void build_screen(uint8_t i);
+
+
+// void external_cb(int i)
+// {
+//   Serial.print("CB: #");
+//   Serial.println(i);
+
+//   // switch (i)
+//   // {
+//   // case ARMED_HOME:
+//   //   iot.pub_noTopic("armed_home", "myHome/alarmMonitor");
+//   //   break;
+//   // case ARMED_AWAY:
+//   //   iot.pub_noTopic("armed_away", "myHome/alarmMonitor");
+//   //   break;
+//   // case DISARMED:
+//   //   iot.pub_noTopic("disarmed", "myHome/alarmMonitor");
+//   //   break;
+
+//   // default:
+//   //   break;
+//   // }
+// }
+void external_cb(int i, uint8_t digit)
 {
   Serial.print("CB: #");
   Serial.println(i);
+  Serial.print("Digit: #");
+  Serial.println(digit);
+  // const char *wincmds[] = {"up", "stop", "down"};
+
+  // switch (i)
+  // {
+  // case WINDOWS_GROUND_BUT:
+  //   iot.pub_noTopic(wincmds[state], "myHome/Windows/gFloor");
+  //   break;
+  // case WINDOWS_ALL_BUT:
+  //   iot.pub_noTopic(wincmds[state], "myHome/Windows/All");
+  //   break;
+  // case WINDOWS_TOP_BUT:
+  //   iot.pub_noTopic(wincmds[state], "myHome/Windows/tFloor");
+  //   break;
+  // case WINDOWS_PERG_BUT:
+  //   add_msg2que("myHome/Windows/Pergola", wincmds[state]);
+  //   add_msg2que("myHome/Windows/Kitchen", wincmds[state]);
+  //   add_msg2que("myHome/Windows/Saloon", wincmds[state]);
+  //   break;
+
+  // default:
+  //   break;
+  // }
 }
-void set_buttons_state(uint8_t n, bool array[]) /* on re-creatoin of a menu - when using is latch button */
+
+void restore_but_state(uint8_t n, bool array[]) /* on re-creatoin of a menu - when using is latch button */
 {
   for (uint8_t i = 0; i < n; i++)
   {
@@ -132,6 +184,23 @@ void create_keypad()
   const char *a[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"};
   create_gen_menu(4, 3, false, a);
 }
+void ChangeColor_AlarmButton(uint8_t color)
+{
+  switch (color)
+  {
+  case 0:
+    genButtonArr.butarray[0].tft_entity.face_color = ILI9341_WHITE;
+    break;
+  case 1:
+    genButtonArr.butarray[0].tft_entity.face_color = ILI9341_GREEN;
+    break;
+  case 2:
+    genButtonArr.butarray[0].tft_entity.face_color = ILI9341_RED;
+    break;
+  default:
+    break;
+  }
+}
 void create_AlarmMenu()
 {
   const char *a[] = {"Arm Home", "Arm Away", "Disarm KeyPad"};
@@ -140,20 +209,20 @@ void create_AlarmMenu()
 void create_Lights_int_g()
 {
   const char *a[] = {"Light_G1", "Light_G2", "Light_G3", "Light_G4", "Light_G5", "Light_G6"};
-  create_gen_menu(3, 2, true, a);
-  set_buttons_state(numButtons_Lights, light_state_ground);
+  create_gen_menu(3, 2, false, a);
+  restore_but_state(numButtons_Lights, light_state_ground);
 }
 void create_Lights_int_2()
 {
   const char *a[] = {"TopLight1", "TopLight2", "TopLight3", "TopLight4", "TopLight5", "TopLight6"};
-  create_gen_menu(3, 2, true, a);
-  set_buttons_state(numButtons_Lights, light_state_top);
+  create_gen_menu(3, 2, false, a);
+  restore_but_state(numButtons_Lights, light_state_top);
 }
 void create_Lights_ext()
 {
   const char *a[] = {"extLight1", "extLight2", "extLight3", "extLight4", "extLight5", "extLight6"};
-  create_gen_menu(3, 2, true, a);
-  set_buttons_state(numButtons_Lights, light_state_ext);
+  create_gen_menu(3, 2, false, a);
+  restore_but_state(numButtons_Lights, light_state_ext);
 }
 void create_Lights_Main()
 {
@@ -169,6 +238,11 @@ void create_Windows_Operate()
 {
   const char *a[] = {"Up", "Stop", "Down"};
   create_gen_menu(3, 1, false, a);
+}
+void create_Lights_Operate()
+{
+  const char *a[] = {"On", "Off"};
+  create_gen_menu(2, 1, false, a);
 }
 
 void calc_clk(char *retClk)
@@ -204,10 +278,11 @@ void update_title(const char *ttl = nullptr)
     {
       title.createLabel(ttl);
     }
-    // else
-    // {
-    //   title.createLabel(" ");
-    // }
+    else
+    {
+      //   title.createLabel(" ");
+      yield();
+    }
   }
   else if (activeTiltle == NO_TITLE)
   {
@@ -222,9 +297,22 @@ void add_char_kaypad(const char *a)
 {
   strcat(keypad_pressed_chrs, a);
 }
-void send_keypad_msg_cd()
+bool send_keypad_Code()
 {
-  Serial.println("Code sent");
+  const char *codes[] = {"131075", "180582", "030107"};
+  // Serial.print("Code recieved: ");
+  // Serial.println(keypad_pressed_chrs);
+
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    if (strcmp(keypad_pressed_chrs, codes[i]) == 0)
+    {
+      external_cb(ALARM_KEYPAD, 1);
+      title.tft_entity.face_color = ILI9341_GREEN;
+      return 1;
+    }
+  }
+  return 0;
 }
 
 void read_keypad()
@@ -232,24 +320,27 @@ void read_keypad()
   uint8_t kpad_dig = genButtonArr.checkPress(numButtons_Keypad);
   if (kpad_dig != 99)
   {
-    //   if (activeTiltle != CLOCK_ֹTITLE && millis() - last_press_millis > 5000)
-    //   {
-    //     clear_keypad();
-    //   }
-    // }
-    // else
-    // {
     last_press_millis = millis();
     if (kpad_dig == 11)
     {
-      send_keypad_msg_cd();
-      update_title((" ** SENT ** "));
-      delay(1000);
-      clear_keypad();
+      update_title("SENT");
+      delay(500);
+      if (send_keypad_Code())
+      {
+        update_title(("** CODE OK **"));
+        delay(1000);
+        build_screen(MAIN_MENU);
+      }
+      else
+      {
+        update_title(("** CODE FAIL **"));
+        delay(1000);
+        clear_keypad();
+      }
     }
     else if (kpad_dig == 9)
     {
-      update_title((" ** CLEAR ** "));
+      update_title(("CLEAR"));
       delay(1000);
       clear_keypad();
     }
@@ -263,24 +354,13 @@ void read_keypad()
 }
 void read_Lights_Main()
 {
+  uint8_t selection[] = {LIGHTS_GROUND, LIGHTS_TOP, LIGHTS_EXT};
   uint8_t Light_dig = genButtonArr.checkPress(numButtons_Lights_Main);
 
   if (Light_dig != 99)
   {
     last_press_millis = millis();
-
-    if (Light_dig == 0)
-    {
-      build_screen(LIGHTS_GROUND);
-    }
-    else if (Light_dig == 1)
-    {
-      build_screen(LIGHTS_TOP);
-    }
-    else if (Light_dig == 2)
-    {
-      build_screen(LIGHTS_EXT);
-    }
+    build_screen(selection[Light_dig]);
   }
 }
 void read_Lights_int_g()
@@ -290,8 +370,7 @@ void read_Lights_int_g()
   if (Light_dig != 99)
   {
     last_press_millis = millis();
-    light_state_ground[Light_dig] = genButtonArr.butarray[Light_dig].get_buttonState();
-    external_cb(100 + 10 * (Light_dig + 1) + genButtonArr.butarray[Light_dig].get_buttonState());
+    build_screen(LIGHTS_OPER);
   }
 }
 void read_Lights_int_2()
@@ -301,8 +380,7 @@ void read_Lights_int_2()
   if (Light_dig != 99)
   {
     last_press_millis = millis();
-    light_state_top[Light_dig] = genButtonArr.butarray[Light_dig].get_buttonState();
-    external_cb(200 + 10 * (Light_dig + 1) + genButtonArr.butarray[Light_dig].get_buttonState());
+    build_screen(LIGHTS_OPER);
   }
 }
 void read_Lights_ext()
@@ -312,8 +390,17 @@ void read_Lights_ext()
   if (Light_dig != 99)
   {
     last_press_millis = millis();
-    light_state_ext[Light_dig] = genButtonArr.butarray[Light_dig].get_buttonState();
-    external_cb(300 + 10 * (Light_dig + 1) + genButtonArr.butarray[Light_dig].get_buttonState());
+    build_screen(LIGHTS_OPER);
+  }
+}
+void read_Lights_Oper()
+{
+  uint8_t dig = genButtonArr.checkPress(numButtons_Lights_Operate);
+
+  if (dig != 99)
+  {
+    last_press_millis = millis();
+    external_cb(lastMenu, dig);
   }
 }
 void read_alarmMenu()
@@ -323,80 +410,55 @@ void read_alarmMenu()
   if (alarm_dig != 99)
   {
     last_press_millis = millis();
+
     if (alarm_dig == 2)
     {
       build_screen(ALARM_KEYPAD);
     }
     else
     {
-      Serial.println("ALARM");
-      external_cb(alarm_dig);
+      external_cb(ALARM_MAIN, alarm_dig);
+      title.tft_entity.face_color = ILI9341_RED;
       build_screen(MAIN_MENU);
     }
   }
 }
 void read_Main()
 {
-  uint8_t Main_dig = genButtonArr.checkPress(numButtons_Main);
+  uint8_t selection[] = {ALARM_MAIN, LIGHTS_MAIN, WINDOWS_MAIN, SYSTEM_MAIM};
+  uint8_t dig = genButtonArr.checkPress(numButtons_Main);
 
-  if (Main_dig != 99)
+  if (dig != 99)
   {
     last_press_millis = millis();
-    if (Main_dig == 0) /* Alarm Menu */
-    {
-      build_screen(ALARM_MAIN);
-    }
-    else if (Main_dig == 1) /* Lights Menu */
-    {
-      build_screen(LIGHTS_MAIN);
-    }
-    else if (Main_dig == 2) /* Windows Menu */
-    {
-      build_screen(WINDOWS_MAIN);
-    }
-    else if (Main_dig == SYSTEM_MAIM) /* System Menu */
-    {
-      // build_screen(LIGHTS_MAIN);
-    }
+    build_screen(selection[ALARM_MAIN]);
   }
 }
 void read_Windows_Main()
 {
-  uint8_t Main_dig = genButtonArr.checkPress(numButtons_Windows_Main);
+  uint8_t dig = genButtonArr.checkPress(numButtons_Windows_Main);
+  uint8_t selection[] = {WINDOWS_ALL, WINDOWS_GROUND, WINDOWS_TOP, WINDOWS_PERG};
 
-  if (Main_dig != 99)
+  if (dig != 99)
   {
     last_press_millis = millis();
-    if (Main_dig == 0)
-    {
-      build_screen(WINDOWS_ALL);
-    }
-    else if (Main_dig == 1)
-    {
-      build_screen(WINDOWS_GROUND);
-    }
-    else if (Main_dig == 2)
-    {
-      build_screen(WINDOWS_TOP);
-    }
-    else if (Main_dig == 3)
-    {
-      build_screen(WINDOWS_PERG);
-    }
+    build_screen(selection[dig]);
   }
 }
 void read_Windows_Oper()
 {
-  uint8_t Main_dig = genButtonArr.checkPress(numButtons_Windows_Operate);
+  uint8_t dig = genButtonArr.checkPress(numButtons_Windows_Operate);
 
-  if (Main_dig != 99)
+  if (dig != 99)
   {
     last_press_millis = millis();
-    external_cb(activeMenu + (Main_dig + 1) * 1000);
+    external_cb(lastMenu, dig);
   }
 }
 void read_activeMenu()
 {
+  timeout_to_mainScreen();
+
   switch (activeMenu)
   {
   case MAIN_MENU:
@@ -420,6 +482,9 @@ void read_activeMenu()
   case LIGHTS_EXT:
     read_Lights_ext();
     break;
+  case LIGHTS_OPER:
+    read_Lights_Oper();
+    break;
   case WINDOWS_MAIN:
     read_Windows_Main();
     break;
@@ -438,12 +503,13 @@ void read_activeMenu()
   }
 }
 
-void build_screen(uint8_t i, const char *ttl)
+void build_screen(uint8_t i)
 {
   uint16_t background_color = ILI9341_BLUE;
   title.clear_screen();
   tft.fillScreen(background_color);
 
+  lastMenu = activeMenu;
   activeMenu = i;
   activeTiltle = NO_TITLE;
 
@@ -451,7 +517,7 @@ void build_screen(uint8_t i, const char *ttl)
   {
   case MAIN_MENU:
     activeTiltle = CLOCK_ֹTITLE;
-    update_title(ttl);
+    update_title(" ");
     create_Main();
     break;
   case ALARM_MAIN:
@@ -473,6 +539,9 @@ void build_screen(uint8_t i, const char *ttl)
     break;
   case LIGHTS_EXT:
     create_Lights_ext();
+    break;
+  case LIGHTS_OPER:
+    create_Lights_Operate();
     break;
   case WINDOWS_MAIN:
     create_Windows_Main();
@@ -507,7 +576,7 @@ void start_GUI()
   tft.begin();
   tft.setRotation(SCREEN_ROT); /* 0-3 90 deg each */
   create_title();
-  build_screen(MAIN_MENU, "Hello !");
+  build_screen(MAIN_MENU);
 }
 
 void setup()
@@ -519,18 +588,8 @@ void setup()
 }
 void loop()
 {
-  static unsigned long last_gen = 0;
   read_activeMenu();
   update_title();
-  timeout_to_mainScreen();
+  send_msgsInQue();
   iot.looper();
-  if (millis() > 5000)
-  {
-    send_msgsInQue();
-  }
-  if (millis() - last_gen > 5000+5000*(rand()))
-  {
-    last_gen = millis();
-    gen_dummyMsg(5);
-  }
 }

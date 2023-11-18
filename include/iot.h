@@ -74,6 +74,7 @@ void gen_dummyMsg(uint8_t n)
 }
 void extMQTT(char *incoming_msg, char *_topic)
 {
+    Serial.println(incoming_msg);
     char msg[150];
     if (strcmp(incoming_msg, "status") == 0)
     {
@@ -108,6 +109,7 @@ void start_iot2()
     iot.add_gen_pubTopic("myHome/debug");
     iot.add_subTopic("myHome/test");
     iot.add_pubTopic("myHome/test/Avail");
+    iot.add_subTopic("myHome/alarmMonitor/State");
 
     iot.start_services(extMQTT);
 }
