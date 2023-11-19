@@ -35,6 +35,7 @@ enum menu : const uint8_t
   WINDOWS_GROUND,
   WINDOWS_TOP,
   WINDOWS_PERG,
+  WINDOWS_OPER
 };
 enum title : const uint8_t
 {
@@ -49,75 +50,18 @@ uint8_t activeTiltle = CLOCK_ֹTITLE;
 
 char keypad_pressed_chrs[10];
 unsigned long last_press_millis = 0;
-bool light_state_top[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
-bool light_state_ext[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
-bool light_state_ground[numButtons_Lights] = {0, 0, 0, 0, 0, 0};
 
 void timeout_to_mainScreen();
 void build_screen(uint8_t i);
 
-
-// void external_cb(int i)
-// {
-//   Serial.print("CB: #");
-//   Serial.println(i);
-
-//   // switch (i)
-//   // {
-//   // case ARMED_HOME:
-//   //   iot.pub_noTopic("armed_home", "myHome/alarmMonitor");
-//   //   break;
-//   // case ARMED_AWAY:
-//   //   iot.pub_noTopic("armed_away", "myHome/alarmMonitor");
-//   //   break;
-//   // case DISARMED:
-//   //   iot.pub_noTopic("disarmed", "myHome/alarmMonitor");
-//   //   break;
-
-//   // default:
-//   //   break;
-//   // }
-// }
 void external_cb(int i, uint8_t digit)
 {
   Serial.print("CB: #");
   Serial.println(i);
   Serial.print("Digit: #");
   Serial.println(digit);
-  // const char *wincmds[] = {"up", "stop", "down"};
-
-  // switch (i)
-  // {
-  // case WINDOWS_GROUND_BUT:
-  //   iot.pub_noTopic(wincmds[state], "myHome/Windows/gFloor");
-  //   break;
-  // case WINDOWS_ALL_BUT:
-  //   iot.pub_noTopic(wincmds[state], "myHome/Windows/All");
-  //   break;
-  // case WINDOWS_TOP_BUT:
-  //   iot.pub_noTopic(wincmds[state], "myHome/Windows/tFloor");
-  //   break;
-  // case WINDOWS_PERG_BUT:
-  //   add_msg2que("myHome/Windows/Pergola", wincmds[state]);
-  //   add_msg2que("myHome/Windows/Kitchen", wincmds[state]);
-  //   add_msg2que("myHome/Windows/Saloon", wincmds[state]);
-  //   break;
-
-  // default:
-  //   break;
-  // }
 }
 
-void restore_but_state(uint8_t n, bool array[]) /* on re-creatoin of a menu - when using is latch button */
-{
-  for (uint8_t i = 0; i < n; i++)
-  {
-    if (genButtonArr.butarray[i].tft_entity.latchButton && genButtonArr.butarray[i].get_buttonState() != array[i])
-    {
-      genButtonArr.butarray[i].set_buttonState(array[i]); /* rebuild button in correct state */
-    }
-  }
-}
 void set_def_TFT(TFT_entity &tft_ent, bool latch = false)
 {
   genButtonArr.dw = 2;
@@ -174,90 +118,7 @@ void create_title()
   title.tft_entity.useBorder = false;
   title.tft_entity.center_txt = true;
 }
-void create_Main()
-{
-  const char *a[] = {"Alarm", "Lights", "Windows", "System"};
-  create_gen_menu(2, 2, false, a);
-}
-void create_keypad()
-{
-  const char *a[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"};
-  create_gen_menu(4, 3, false, a);
-}
-void ChangeColor_AlarmButton(uint8_t color)
-{
-  switch (color)
-  {
-  case 0:
-    genButtonArr.butarray[0].tft_entity.face_color = ILI9341_WHITE;
-    break;
-  case 1:
-    genButtonArr.butarray[0].tft_entity.face_color = ILI9341_GREEN;
-    break;
-  case 2:
-    genButtonArr.butarray[0].tft_entity.face_color = ILI9341_RED;
-    break;
-  default:
-    break;
-  }
-}
-void create_AlarmMenu()
-{
-  const char *a[] = {"Arm Home", "Arm Away", "Disarm KeyPad"};
-  create_gen_menu(3, 1, false, a);
-}
-void create_Lights_int_g()
-{
-  const char *a[] = {"Light_G1", "Light_G2", "Light_G3", "Light_G4", "Light_G5", "Light_G6"};
-  create_gen_menu(3, 2, false, a);
-  restore_but_state(numButtons_Lights, light_state_ground);
-}
-void create_Lights_int_2()
-{
-  const char *a[] = {"TopLight1", "TopLight2", "TopLight3", "TopLight4", "TopLight5", "TopLight6"};
-  create_gen_menu(3, 2, false, a);
-  restore_but_state(numButtons_Lights, light_state_top);
-}
-void create_Lights_ext()
-{
-  const char *a[] = {"extLight1", "extLight2", "extLight3", "extLight4", "extLight5", "extLight6"};
-  create_gen_menu(3, 2, false, a);
-  restore_but_state(numButtons_Lights, light_state_ext);
-}
-void create_Lights_Main()
-{
-  const char *a[] = {"Ground Floor", "2nd Floor", "Garden"};
-  create_gen_menu(3, 1, false, a);
-}
-void create_Windows_Main()
-{
-  const char *a[] = {"All", "Ground Floor", "Top Floor", "Pergs&Kitch"};
-  create_gen_menu(4, 1, false, a);
-}
-void create_Windows_Operate()
-{
-  const char *a[] = {"Up", "Stop", "Down"};
-  create_gen_menu(3, 1, false, a);
-}
-void create_Lights_Operate()
-{
-  const char *a[] = {"On", "Off"};
-  create_gen_menu(2, 1, false, a);
-}
 
-void calc_clk(char *retClk)
-{
-  const int MILLIS2SEC = 1000;
-  const int MILLIS2MIN = 60 * MILLIS2SEC;
-  const int MILL2HOUR = 60 * MILLIS2MIN;
-
-  unsigned long mill_counter = millis();
-  uint8_t H = mill_counter / MILL2HOUR;
-  uint8_t M = (mill_counter - H * MILL2HOUR) / MILLIS2MIN;
-  uint8_t S = (mill_counter - H * MILL2HOUR - M * MILLIS2MIN) / MILLIS2SEC;
-
-  sprintf(retClk, "%02d:%02d:%02d", H, M, S);
-}
 void update_title(const char *ttl = nullptr)
 {
   if (activeTiltle == CLOCK_ֹTITLE)
@@ -267,7 +128,6 @@ void update_title(const char *ttl = nullptr)
     {
       last_mil = millis();
       char a[20];
-      // calc_clk(a);
       iot.get_timeStamp(a);
       title.createLabel(a);
     }
@@ -300,8 +160,6 @@ void add_char_kaypad(const char *a)
 bool send_keypad_Code()
 {
   const char *codes[] = {"131075", "180582", "030107"};
-  // Serial.print("Code recieved: ");
-  // Serial.println(keypad_pressed_chrs);
 
   for (uint8_t i = 0; i < 3; i++)
   {
@@ -363,27 +221,7 @@ void read_Lights_Main()
     build_screen(selection[Light_dig]);
   }
 }
-void read_Lights_int_g()
-{
-  uint8_t Light_dig = genButtonArr.checkPress(numButtons_Lights);
-
-  if (Light_dig != 99)
-  {
-    last_press_millis = millis();
-    build_screen(LIGHTS_OPER);
-  }
-}
-void read_Lights_int_2()
-{
-  uint8_t Light_dig = genButtonArr.checkPress(numButtons_Lights);
-
-  if (Light_dig != 99)
-  {
-    last_press_millis = millis();
-    build_screen(LIGHTS_OPER);
-  }
-}
-void read_Lights_ext()
+void read_Lights_groups()
 {
   uint8_t Light_dig = genButtonArr.checkPress(numButtons_Lights);
 
@@ -401,6 +239,7 @@ void read_Lights_Oper()
   {
     last_press_millis = millis();
     external_cb(lastMenu, dig);
+    build_screen(lastMenu);
   }
 }
 void read_alarmMenu()
@@ -431,7 +270,7 @@ void read_Main()
   if (dig != 99)
   {
     last_press_millis = millis();
-    build_screen(selection[ALARM_MAIN]);
+    build_screen(selection[dig]);
   }
 }
 void read_Windows_Main()
@@ -453,53 +292,43 @@ void read_Windows_Oper()
   {
     last_press_millis = millis();
     external_cb(lastMenu, dig);
+    build_screen(lastMenu);
   }
 }
 void read_activeMenu()
 {
   timeout_to_mainScreen();
-
-  switch (activeMenu)
+  if (activeMenu == MAIN_MENU)
   {
-  case MAIN_MENU:
     read_Main();
-    break;
-  case ALARM_MAIN:
+  }
+  else if (activeMenu == ALARM_MAIN)
+  {
     read_alarmMenu();
-    break;
-  case ALARM_KEYPAD:
+  }
+  else if (activeMenu == ALARM_KEYPAD)
+  {
     read_keypad();
-    break;
-  case LIGHTS_MAIN:
+  }
+  else if (activeMenu == LIGHTS_MAIN)
+  {
     read_Lights_Main();
-    break;
-  case LIGHTS_GROUND:
-    read_Lights_int_g();
-    break;
-  case LIGHTS_TOP:
-    read_Lights_int_2();
-    break;
-  case LIGHTS_EXT:
-    read_Lights_ext();
-    break;
-  case LIGHTS_OPER:
+  }
+  else if (activeMenu == LIGHTS_GROUND || activeMenu == LIGHTS_TOP || activeMenu == LIGHTS_EXT)
+  {
+    read_Lights_groups();
+  }
+  else if (activeMenu == LIGHTS_OPER)
+  {
     read_Lights_Oper();
-    break;
-  case WINDOWS_MAIN:
+  }
+  else if (activeMenu == WINDOWS_MAIN)
+  {
     read_Windows_Main();
-    break;
-  case WINDOWS_ALL:
+  }
+  else if (activeMenu == WINDOWS_ALL || activeMenu == WINDOWS_GROUND || activeMenu == WINDOWS_TOP || activeMenu == WINDOWS_PERG)
+  {
     read_Windows_Oper();
-    break;
-  case WINDOWS_GROUND:
-    read_Windows_Oper();
-    break;
-  case WINDOWS_TOP:
-    read_Windows_Oper();
-    break;
-  case WINDOWS_PERG:
-    read_Windows_Oper();
-    break;
   }
 }
 
@@ -512,51 +341,61 @@ void build_screen(uint8_t i)
   lastMenu = activeMenu;
   activeMenu = i;
   activeTiltle = NO_TITLE;
+  const char *a[] = {"Alarm", "Lights", "Windows", "System"};
+  const char *b[] = {"Arm Home", "Arm Away", "Disarm KeyPad"};
+  const char *c[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"};
+  const char *d[] = {"Ground Floor", "2nd Floor", "Garden"};
+  const char *e[] = {"Light_G1", "Light_G2", "Light_G3", "Light_G4", "Light_G5", "Light_G6"};
+  const char *f[] = {"TopLight1", "TopLight2", "TopLight3", "TopLight4", "TopLight5", "TopLight6"};
+  const char *g[] = {"extLight1", "extLight2", "extLight3", "extLight4", "extLight5", "extLight6"};
+  const char *h[] = {"On", "Off"};
+  const char *j[] = {"All", "Ground Floor", "Top Floor", "Pergs&Kitch"};
+  const char *k[] = {"Up", "Stop", "Down"};
 
   switch (activeMenu)
   {
   case MAIN_MENU:
     activeTiltle = CLOCK_ֹTITLE;
     update_title(" ");
-    create_Main();
+    create_gen_menu(2, 2, false, a);
     break;
   case ALARM_MAIN:
-    create_AlarmMenu();
+    create_gen_menu(3, 1, false, b);
     break;
   case ALARM_KEYPAD:
     activeTiltle = TEXT_TITLE;
     update_title("\"*\" Send; \"#\"Clear");
-    create_keypad();
+    create_gen_menu(4, 3, false, c);
     break;
   case LIGHTS_MAIN:
-    create_Lights_Main();
+    create_gen_menu(3, 1, false, d);
     break;
   case LIGHTS_GROUND:
-    create_Lights_int_g();
+    create_gen_menu(3, 2, false, e);
     break;
   case LIGHTS_TOP:
-    create_Lights_int_2();
+    create_gen_menu(3, 2, false, f);
     break;
   case LIGHTS_EXT:
-    create_Lights_ext();
+    create_gen_menu(3, 2, false, g);
     break;
   case LIGHTS_OPER:
-    create_Lights_Operate();
+    create_gen_menu(2, 1, false, h);
     break;
   case WINDOWS_MAIN:
-    create_Windows_Main();
+    create_gen_menu(4, 1, false, j);
     break;
   case WINDOWS_ALL:
-    create_Windows_Operate();
+    create_gen_menu(3, 1, false, k);
     break;
   case WINDOWS_GROUND:
-    create_Windows_Operate();
+    create_gen_menu(3, 1, false, k);
     break;
   case WINDOWS_TOP:
-    create_Windows_Operate();
+    create_gen_menu(3, 1, false, k);
     break;
   case WINDOWS_PERG:
-    create_Windows_Operate();
+    create_gen_menu(3, 1, false, k);
     break;
   default:
     break;
