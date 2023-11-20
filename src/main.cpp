@@ -44,22 +44,42 @@ enum title : const uint8_t
   NO_TITLE
 };
 
+uint8_t lastButton_pressed = 0;
 uint8_t lastMenu = MAIN_MENU;
 uint8_t activeMenu = MAIN_MENU;
 uint8_t activeTiltle = CLOCK_ֹTITLE;
 
+uint8_t menu_seq[5];
+char menuSequence[10];
 char keypad_pressed_chrs[10];
 unsigned long last_press_millis = 0;
 
 void timeout_to_mainScreen();
 void build_screen(uint8_t i);
-
+void clear_menuSeq()
+{
+  for (uint8_t i = 0; i < sizeof(menu_seq) / sizeof(menu_seq[1]); i++)
+  {
+    menu_seq[i] = 255;
+  }
+}
+void update_menuSeq(uint8_t i, uint8_t val)
+{
+  menu_seq[i] = val;
+}
 void external_cb(int i, uint8_t digit)
 {
   Serial.print("CB: #");
   Serial.println(i);
-  Serial.print("Digit: #");
+  Serial.print("lastDigit: #");
+  Serial.println(lastButton_pressed);
+  Serial.print("act: #");
   Serial.println(digit);
+    for (uint8_t i = 0; i < sizeof(menu_seq) / sizeof(menu_seq[1]); i++)
+  {
+    Serial.println(menu_seq[i]);
+  }
+
 }
 
 void set_def_TFT(TFT_entity &tft_ent, bool latch = false)
@@ -217,6 +237,7 @@ void read_Lights_Main()
 
   if (Light_dig != 99)
   {
+    update_menuSeq(1, Light_dig);
     last_press_millis = millis();
     build_screen(selection[Light_dig]);
   }
@@ -228,6 +249,8 @@ void read_Lights_groups()
   if (Light_dig != 99)
   {
     last_press_millis = millis();
+    update_menuSeq(2, Light_dig);
+    // lastButton_pressed = Light_dig;
     build_screen(LIGHTS_OPER);
   }
 }
@@ -238,6 +261,7 @@ void read_Lights_Oper()
   if (dig != 99)
   {
     last_press_millis = millis();
+    update_menuSeq(3, dig);
     external_cb(lastMenu, dig);
     build_screen(lastMenu);
   }
@@ -249,6 +273,7 @@ void read_alarmMenu()
   if (alarm_dig != 99)
   {
     last_press_millis = millis();
+    update_menuSeq(1, alarm_dig);
 
     if (alarm_dig == 2)
     {
@@ -270,6 +295,7 @@ void read_Main()
   if (dig != 99)
   {
     last_press_millis = millis();
+    update_menuSeq(0, dig);
     build_screen(selection[dig]);
   }
 }
@@ -281,6 +307,7 @@ void read_Windows_Main()
   if (dig != 99)
   {
     last_press_millis = millis();
+    update_menuSeq(1, dig);
     build_screen(selection[dig]);
   }
 }
@@ -358,6 +385,7 @@ void build_screen(uint8_t i)
     activeTiltle = CLOCK_ֹTITLE;
     update_title(" ");
     create_gen_menu(2, 2, false, a);
+    clear_menuSeq();
     break;
   case ALARM_MAIN:
     create_gen_menu(3, 1, false, b);
@@ -416,6 +444,7 @@ void start_GUI()
   tft.setRotation(SCREEN_ROT); /* 0-3 90 deg each */
   create_title();
   build_screen(MAIN_MENU);
+  clear_menuSeq();
 }
 
 void setup()
