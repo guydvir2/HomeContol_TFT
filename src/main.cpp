@@ -44,13 +44,12 @@ enum title : const uint8_t
   NO_TITLE
 };
 
-uint8_t lastButton_pressed = 0;
+// uint8_t lastButton_pressed = 0;
 uint8_t lastMenu = MAIN_MENU;
 uint8_t activeMenu = MAIN_MENU;
 uint8_t activeTiltle = CLOCK_ֹTITLE;
 
 uint8_t menu_seq[5];
-char menuSequence[10];
 char keypad_pressed_chrs[10];
 unsigned long last_press_millis = 0;
 
