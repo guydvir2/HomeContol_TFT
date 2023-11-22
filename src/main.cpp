@@ -44,7 +44,6 @@ enum title : const uint8_t
   NO_TITLE
 };
 
-// uint8_t lastButton_pressed = 0;
 uint8_t lastMenu = MAIN_MENU;
 uint8_t activeMenu = MAIN_MENU;
 uint8_t activeTiltle = CLOCK_ֹTITLE;
@@ -62,23 +61,16 @@ void clear_menuSeq()
     menu_seq[i] = 255;
   }
 }
-void update_menuSeq(uint8_t i, uint8_t val)
+void update_menuSeq(uint8_t level, uint8_t val)
 {
-  menu_seq[i] = val;
+  menu_seq[level] = val;
 }
 void external_cb(int i, uint8_t digit)
 {
-  Serial.print("CB: #");
-  Serial.println(i);
-  Serial.print("lastDigit: #");
-  Serial.println(lastButton_pressed);
-  Serial.print("act: #");
-  Serial.println(digit);
-    for (uint8_t i = 0; i < sizeof(menu_seq) / sizeof(menu_seq[1]); i++)
+  for (uint8_t i = 0; i < sizeof(menu_seq) / sizeof(menu_seq[1]); i++)
   {
     Serial.println(menu_seq[i]);
   }
-
 }
 
 void set_def_TFT(TFT_entity &tft_ent, bool latch = false)
@@ -198,6 +190,7 @@ void read_keypad()
   if (kpad_dig != 99)
   {
     last_press_millis = millis();
+    update_menuSeq(2, kpad_dig);
     if (kpad_dig == 11)
     {
       update_title("SENT");
@@ -249,7 +242,6 @@ void read_Lights_groups()
   {
     last_press_millis = millis();
     update_menuSeq(2, Light_dig);
-    // lastButton_pressed = Light_dig;
     build_screen(LIGHTS_OPER);
   }
 }
@@ -317,6 +309,7 @@ void read_Windows_Oper()
   if (dig != 99)
   {
     last_press_millis = millis();
+    update_menuSeq(2, dig);
     external_cb(lastMenu, dig);
     build_screen(lastMenu);
   }
