@@ -1,4 +1,5 @@
 #include <myIOT2.h>
+// #include <ESP8266Ping.h>
 
 myIOT2 iot;
 struct MQTTmsg
@@ -6,6 +7,15 @@ struct MQTTmsg
     char topic[40];
     char msg[10];
 };
+struct ConnectivityMonitor
+{
+    unsigned int counter = 0;
+    unsigned int mark = 0;
+    inline float get_mark() const { return (float)mark / (float)counter; };
+};
+
+ConnectivityMonitor wifiMonitor;
+ConnectivityMonitor mqttMonitor;
 
 uint8_t msginQue_counter = 0;
 const uint8_t MaxMessagesInQue = 5;
@@ -112,4 +122,16 @@ void start_iot2()
     iot.add_subTopic("myHome/alarmMonitor/State");
 
     iot.start_services(extMQTT);
+}
+void checkWifi_connectivity(uint8_t sec_interval)
+{
+    static unsigned long last_test = 0;
+    if (millis() - last_test > 1000 * sec_interval)
+    {
+        last_test = millis();
+        wifiMonitor.counter++;
+        mqttMonitor.counter++;
+        wifiMonitor.mark += iot.isWifiConnected();
+        mqttMonitor.mark += iot.isMqttConnected();
+    }
 }
